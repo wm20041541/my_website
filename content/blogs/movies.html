@@ -1,0 +1,457 @@
+---
+title: "Is there a correlation between movie gross revenue and ratings?"
+author: "Kris"
+date: "2020-10-22"
+output:
+  html_document:
+    theme: flatly
+    highlight: zenburn
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+
+
+<p>I am a fan of movies, not only movies themselves but the numbers of how they have performed, both in ratings and box office. Nonetheless, this is my first ever attempt to look at movie data with R!</p>
+<div id="load-packages" class="section level2">
+<h2>Load packages</h2>
+<pre class="r"><code>library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
+library(mosaic)
+library(ggthemes)
+library(lubridate)
+library(fivethirtyeight)
+library(here)
+library(skimr)
+library(janitor)
+library(vroom)
+library(tidyquant)
+library(rvest)    # scrape websites
+library(purrr)  
+library(lubridate) #to handle dates</code></pre>
+</div>
+<div id="load-data-and-take-a-look" class="section level2">
+<h2>Load data and take a look</h2>
+<pre class="r"><code>movies &lt;- read_csv(here::here(&quot;data&quot;, &quot;movies.csv&quot;))
+glimpse(movies)</code></pre>
+<pre><code>## Rows: 2,961
+## Columns: 11
+## $ title               &lt;chr&gt; &quot;Avatar&quot;, &quot;Titanic&quot;, &quot;Jurassic World&quot;, &quot;The Ave...
+## $ genre               &lt;chr&gt; &quot;Action&quot;, &quot;Drama&quot;, &quot;Action&quot;, &quot;Action&quot;, &quot;Action&quot;...
+## $ director            &lt;chr&gt; &quot;James Cameron&quot;, &quot;James Cameron&quot;, &quot;Colin Trevor...
+## $ year                &lt;dbl&gt; 2009, 1997, 2015, 2012, 2008, 1999, 1977, 2015,...
+## $ duration            &lt;dbl&gt; 178, 194, 124, 173, 152, 136, 125, 141, 164, 93...
+## $ gross               &lt;dbl&gt; 7.61e+08, 6.59e+08, 6.52e+08, 6.23e+08, 5.33e+0...
+## $ budget              &lt;dbl&gt; 2.37e+08, 2.00e+08, 1.50e+08, 2.20e+08, 1.85e+0...
+## $ cast_facebook_likes &lt;dbl&gt; 4834, 45223, 8458, 87697, 57802, 37723, 13485, ...
+## $ votes               &lt;dbl&gt; 886204, 793059, 418214, 995415, 1676169, 534658...
+## $ reviews             &lt;dbl&gt; 3777, 2843, 1934, 2425, 5312, 3917, 1752, 1752,...
+## $ rating              &lt;dbl&gt; 7.9, 7.7, 7.0, 8.1, 9.0, 6.5, 8.7, 7.5, 8.5, 7....</code></pre>
+<pre class="r"><code>skim(movies)</code></pre>
+<table>
+<caption><span id="tab:unnamed-chunk-1">Table 1: </span>Data summary</caption>
+<tbody>
+<tr class="odd">
+<td align="left">Name</td>
+<td align="left">movies</td>
+</tr>
+<tr class="even">
+<td align="left">Number of rows</td>
+<td align="left">2961</td>
+</tr>
+<tr class="odd">
+<td align="left">Number of columns</td>
+<td align="left">11</td>
+</tr>
+<tr class="even">
+<td align="left">_______________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Column type frequency:</td>
+<td align="left"></td>
+</tr>
+<tr class="even">
+<td align="left">character</td>
+<td align="left">3</td>
+</tr>
+<tr class="odd">
+<td align="left">numeric</td>
+<td align="left">8</td>
+</tr>
+<tr class="even">
+<td align="left">________________________</td>
+<td align="left"></td>
+</tr>
+<tr class="odd">
+<td align="left">Group variables</td>
+<td align="left">None</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: character</strong></p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">min</th>
+<th align="right">max</th>
+<th align="right">empty</th>
+<th align="right">n_unique</th>
+<th align="right">whitespace</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">title</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1</td>
+<td align="right">83</td>
+<td align="right">0</td>
+<td align="right">2907</td>
+<td align="right">0</td>
+</tr>
+<tr class="even">
+<td align="left">genre</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">5</td>
+<td align="right">11</td>
+<td align="right">0</td>
+<td align="right">17</td>
+<td align="right">0</td>
+</tr>
+<tr class="odd">
+<td align="left">director</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">3</td>
+<td align="right">32</td>
+<td align="right">0</td>
+<td align="right">1366</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Variable type: numeric</strong></p>
+<table style="width:100%;">
+<colgroup>
+<col width="18%" />
+<col width="9%" />
+<col width="12%" />
+<col width="8%" />
+<col width="8%" />
+<col width="6%" />
+<col width="8%" />
+<col width="8%" />
+<col width="8%" />
+<col width="8%" />
+<col width="5%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">skim_variable</th>
+<th align="right">n_missing</th>
+<th align="right">complete_rate</th>
+<th align="right">mean</th>
+<th align="right">sd</th>
+<th align="right">p0</th>
+<th align="right">p25</th>
+<th align="right">p50</th>
+<th align="right">p75</th>
+<th align="right">p100</th>
+<th align="left">hist</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">year</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">2.00e+03</td>
+<td align="right">9.95e+00</td>
+<td align="right">1920.0</td>
+<td align="right">2.00e+03</td>
+<td align="right">2.00e+03</td>
+<td align="right">2.01e+03</td>
+<td align="right">2.02e+03</td>
+<td align="left">▁▁▁▂▇</td>
+</tr>
+<tr class="even">
+<td align="left">duration</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1.10e+02</td>
+<td align="right">2.22e+01</td>
+<td align="right">37.0</td>
+<td align="right">9.50e+01</td>
+<td align="right">1.06e+02</td>
+<td align="right">1.19e+02</td>
+<td align="right">3.30e+02</td>
+<td align="left">▃▇▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">gross</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">5.81e+07</td>
+<td align="right">7.25e+07</td>
+<td align="right">703.0</td>
+<td align="right">1.23e+07</td>
+<td align="right">3.47e+07</td>
+<td align="right">7.56e+07</td>
+<td align="right">7.61e+08</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">budget</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">4.06e+07</td>
+<td align="right">4.37e+07</td>
+<td align="right">218.0</td>
+<td align="right">1.10e+07</td>
+<td align="right">2.60e+07</td>
+<td align="right">5.50e+07</td>
+<td align="right">3.00e+08</td>
+<td align="left">▇▂▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">cast_facebook_likes</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1.24e+04</td>
+<td align="right">2.05e+04</td>
+<td align="right">0.0</td>
+<td align="right">2.24e+03</td>
+<td align="right">4.60e+03</td>
+<td align="right">1.69e+04</td>
+<td align="right">6.57e+05</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">votes</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">1.09e+05</td>
+<td align="right">1.58e+05</td>
+<td align="right">5.0</td>
+<td align="right">1.99e+04</td>
+<td align="right">5.57e+04</td>
+<td align="right">1.33e+05</td>
+<td align="right">1.69e+06</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="odd">
+<td align="left">reviews</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">5.03e+02</td>
+<td align="right">4.94e+02</td>
+<td align="right">2.0</td>
+<td align="right">1.99e+02</td>
+<td align="right">3.64e+02</td>
+<td align="right">6.31e+02</td>
+<td align="right">5.31e+03</td>
+<td align="left">▇▁▁▁▁</td>
+</tr>
+<tr class="even">
+<td align="left">rating</td>
+<td align="right">0</td>
+<td align="right">1</td>
+<td align="right">6.39e+00</td>
+<td align="right">1.05e+00</td>
+<td align="right">1.6</td>
+<td align="right">5.80e+00</td>
+<td align="right">6.50e+00</td>
+<td align="right">7.10e+00</td>
+<td align="right">9.30e+00</td>
+<td align="left">▁▁▆▇▁</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># source of data &lt;https://www.kaggle.com/carolzhangdc/imdb-5000-movie-dataset&gt;</code></pre>
+<p>Besides the obvious variables of <code>title</code>, <code>genre</code>, <code>director</code>, <code>year</code>, and <code>duration</code>, the rest of the variables are as follows:</p>
+<ul>
+<li><code>gross</code> : The gross earnings in the US box office, not adjusted for inflation</li>
+<li><code>budget</code>: The movie’s budget</li>
+<li><code>cast_facebook_likes</code>: the number of facebook likes cast memebrs received</li>
+<li><code>votes</code>: the number of people who voted for (or rated) the movie in IMDB</li>
+<li><code>reviews</code>: the number of reviews for that movie</li>
+<li><code>rating</code>: IMDB average rating</li>
+</ul>
+</div>
+<div id="observe-dataframe" class="section level2">
+<h2>Observe dataframe</h2>
+<p>From <code>skim</code>, we can see that there no missing values. Groovy. But less straightforward to deduce is the fact that there are duplicates. There is a difference between <em>Number of rows</em> and <em>n_unique</em> = 2961 - 2907 = 54 duplicates. They ought to be removed.</p>
+</div>
+<div id="remove-duplicates" class="section level2">
+<h2>Remove duplicates</h2>
+<pre class="r"><code># remove duplicates
+movies %&gt;% 
+  distinct(title)</code></pre>
+<pre><code>## # A tibble: 2,907 x 1
+##    title                                    
+##    &lt;chr&gt;                                    
+##  1 Avatar                                   
+##  2 Titanic                                  
+##  3 Jurassic World                           
+##  4 The Avengers                             
+##  5 The Dark Knight                          
+##  6 Star Wars: Episode I - The Phantom Menace
+##  7 Star Wars: Episode IV - A New Hope       
+##  8 Avengers: Age of Ultron                  
+##  9 The Dark Knight Rises                    
+## 10 Shrek 2                                  
+## # ... with 2,897 more rows</code></pre>
+<p>We can conveniently summarise how many movies fall under each category, to get a sense of what genres we are working with.</p>
+</div>
+<div id="number-of-movies-by-genre" class="section level2">
+<h2>Number of movies by genre</h2>
+<pre class="r"><code># Produce a table with the count of movies by genre, ranked in descending order
+movies_by_genre &lt;- movies %&gt;% 
+ group_by(genre) %&gt;% 
+summarise(count=count(genre)) %&gt;% 
+  arrange(desc(count))
+movies_by_genre</code></pre>
+<pre><code>## # A tibble: 17 x 2
+##    genre       count
+##    &lt;chr&gt;       &lt;int&gt;
+##  1 Comedy        848
+##  2 Action        738
+##  3 Drama         498
+##  4 Adventure     288
+##  5 Crime         202
+##  6 Biography     135
+##  7 Horror        131
+##  8 Animation      35
+##  9 Fantasy        28
+## 10 Documentary    25
+## 11 Mystery        16
+## 12 Sci-Fi          7
+## 13 Family          3
+## 14 Musical         2
+## 15 Romance         2
+## 16 Western         2
+## 17 Thriller        1</code></pre>
+<p>It looks like we are mostly dealing with comedies and actions. These are my two favorite genres to watch in cinema! Why are there so many of them? Is it because people like them so movie makers tend to want to make them? Is it profitable to make them?</p>
+</div>
+<div id="profitability-of-movies-by-genre" class="section level2">
+<h2>Profitability of movies by genre</h2>
+<pre class="r"><code>gross_budget &lt;- movies %&gt;% 
+ group_by(genre) %&gt;% 
+summarise(budget=mean(budget),
+          gross=mean(gross),
+          return_on_budget=gross/budget) %&gt;%  # Calculate average profitability in $ gross per $ budget
+  arrange(desc(return_on_budget))
+gross_budget</code></pre>
+<pre><code>## # A tibble: 17 x 4
+##    genre          budget      gross return_on_budget
+##    &lt;chr&gt;           &lt;dbl&gt;      &lt;dbl&gt;            &lt;dbl&gt;
+##  1 Musical      3189500   92084000          28.9    
+##  2 Family      14833333. 149160478.         10.1    
+##  3 Western      3465000   20821884           6.01   
+##  4 Documentary  5887852.  17353973.          2.95   
+##  5 Horror      13504916.  37713738.          2.79   
+##  6 Fantasy     17582143.  42408841.          2.41   
+##  7 Comedy      24446319.  42630552.          1.74   
+##  8 Mystery     39218750   67533021.          1.72   
+##  9 Animation   61701429.  98433792.          1.60   
+## 10 Biography   28543696.  45201805.          1.58   
+## 11 Adventure   66290069.  95794257.          1.45   
+## 12 Drama       26242933.  37465371.          1.43   
+## 13 Crime       26596169.  37502397.          1.41   
+## 14 Romance     25107500   31264848.          1.25   
+## 15 Action      71354888.  86583860.          1.21   
+## 16 Sci-Fi      27607143.  29788371.          1.08   
+## 17 Thriller      300000       2468           0.00823</code></pre>
+<p>Look, comedy is not as profitable as it may seem. Action movies are amongst the least profitable. Movie makers should probably do musicals like la la land to earn extra dimes for the crew.</p>
+<p>For long, I have been wondering who is the most grossing director. Now is a chance to look at this.</p>
+</div>
+<div id="revenue-stats-by-directors" class="section level2">
+<h2>Revenue stats by directors</h2>
+<pre class="r"><code>director &lt;- movies %&gt;% 
+  group_by(director) %&gt;% 
+  summarise(gross_revenue=sum(gross),
+            mean_revenue=mean(gross),
+            median_revenue = median(gross),
+            sd_revenue = sd(gross)) %&gt;% 
+arrange(desc(gross_revenue)) %&gt;% 
+  head(15,gross_revenue)
+director</code></pre>
+<pre><code>## # A tibble: 15 x 5
+##    director          gross_revenue mean_revenue median_revenue sd_revenue
+##    &lt;chr&gt;                     &lt;dbl&gt;        &lt;dbl&gt;          &lt;dbl&gt;      &lt;dbl&gt;
+##  1 Steven Spielberg     4014061704   174524422.     164435221  101421051.
+##  2 Michael Bay          2231242537   171634041.     138396624  127161579.
+##  3 Tim Burton           2071275480   129454718.      76519172  108726924.
+##  4 Sam Raimi            2014600898   201460090.     234903076  162126632.
+##  5 James Cameron        1909725910   318287652.     175562880. 309171337.
+##  6 Christopher Nolan    1813227576   226653447      196667606. 187224133.
+##  7 George Lucas         1741418480   348283696      380262555  146193880.
+##  8 Robert Zemeckis      1619309108   124562239.     100853835   91300279.
+##  9 Clint Eastwood       1378321100    72543216.      46700000   75487408.
+## 10 Francis Lawrence     1358501971   271700394.     281666058  135437020.
+## 11 Ron Howard           1335988092   111332341      101587923   81933761.
+## 12 Gore Verbinski       1329600995   189942999.     123207194  154473822.
+## 13 Andrew Adamson       1137446920   284361730      279680930. 120895765.
+## 14 Shawn Levy           1129750988   102704635.      85463309   65484773.
+## 15 Ridley Scott         1128857598    80632686.      47775715   68812285.</code></pre>
+<p>It looks like Steven Spielberg, from his life-time creations, have made the most for his producer and distributors. But from <code>mean_revenue</code> and <code>median_revenue</code> it can appear to investors that investing in a George Lucas’ film can be twice as grossing as a Spielberg’s one!</p>
+<p>It is rumored that the best movies do not get enough box office. While this is anecdotally true, are we sure this is the general case? Does rating have a correlation with gross revenue?</p>
+</div>
+<div id="plot-of-gross-vs-rating" class="section level2">
+<h2>Plot of gross vs rating</h2>
+<pre class="r"><code>rating_grossing &lt;- 
+  ggplot(data = movies, mapping = (aes(x = rating, y = gross))) +
+  geom_point() +
+  scale_y_log10() +
+  geom_smooth() +
+  labs(y=&quot;Gross Revenue&quot;,x= &quot;Movie Rating&quot;, title=&quot;Relationship between Gross Revenue &amp; IMDB ratings&quot;)
+
+rating_grossing</code></pre>
+<p><img src="/blogs/movies_files/figure-html/unnamed-chunk-6-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>It looks a positive correlation over there. Going deeper, we can differentiate the relationship by genre.</p>
+</div>
+<div id="plot-of-gross-vs-rating-by-genre" class="section level2">
+<h2>Plot of gross vs rating by genre</h2>
+<pre class="r"><code>gross_on_rating &lt;- movies %&gt;% 
+  ggplot(aes(x=rating,y=gross))+
+  facet_wrap(~genre)+
+  geom_point()+
+  geom_smooth()+
+  labs(x=&quot;Movie Rating&quot;, y= &quot;Gross Revenue&quot;,title=&quot;Relationship between Gross Revenue &amp; Movie Rating&quot;)
+gross_on_rating</code></pre>
+<p><img src="/blogs/movies_files/figure-html/gross_on_rating-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>Cool, some have too scarce data to predict the relationship. Let’s look at other interesting correlations. How about online popularity of cast on facebook? Would it be correlated with a higher box office?</p>
+</div>
+<div id="plot-of-gross-vs-facebook-likes" class="section level1">
+<h1>Plot of gross vs facebook likes</h1>
+<pre class="r"><code>gross_on_fblikes &lt;- movies %&gt;% 
+  ggplot(aes(x=cast_facebook_likes,y=gross))+
+  geom_point()+
+  geom_smooth()+
+  scale_x_log10()+
+  scale_y_log10()+
+  labs(y=&quot;Gross Revenue&quot;,x= &quot;Cast Facebook Likes&quot;, title=&quot;Relationship between Gross Revenue &amp; Cast Facebook Likes&quot;)
+gross_on_fblikes</code></pre>
+<p><img src="/blogs/movies_files/figure-html/gross_on_fblikes-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>Yes! What about the relationship between gross and budget? Is it necessary that the higher expenditure to make a movie, the more it will earn?</p>
+<pre class="r"><code>gross_on_budget &lt;- movies %&gt;% 
+  ggplot(aes(x=budget,y=gross))+
+  geom_point()+
+  geom_smooth()+
+  scale_x_log10()+
+  scale_y_log10()+
+  labs(x=&quot;Budget&quot;, y=&quot;Gross Revenue&quot;, title=&quot;Relationship between Budget &amp; Gross Revenue&quot;)
+gross_on_budget</code></pre>
+<p><img src="/blogs/movies_files/figure-html/gross_on_budget-1.png" width="648" style="display: block; margin: auto;" /></p>
+<p>In general, more budget means more gross, although there are some expensive flops and cheap wins!</p>
+<div id="acknowledgement-of-data-source-imdb-dataset" class="section level2">
+<h2>Acknowledgement of data source: <a href="https://www.kaggle.com/carolzhangdc/imdb-5000-movie-dataset">IMDB dataset</a></h2>
+</div>
+</div>

@@ -1,0 +1,188 @@
+---
+title: "Is there a correlation between movie gross revenue and ratings?"
+author: "Kris"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    theme: flatly
+    highlight: zenburn
+    number_sections: yes
+    toc: yes
+    toc_float: yes
+    code_folding: show
+---
+
+```{r, setup, echo=FALSE}
+knitr::opts_chunk$set(
+  message = FALSE, 
+  warning = FALSE, 
+  tidy=FALSE,     # display code as typed
+  size="small")   # slightly smaller font for code
+options(digits = 3)
+
+# default figure size
+knitr::opts_chunk$set(
+  fig.width=6.75, 
+  fig.height=6.75,
+  fig.align = "center"
+)
+```
+
+I am a fan of movies, not only movies themselves but the numbers of how they have performed, both in ratings and box office. Nonetheless, this is my first ever attempt to look at movie data with R!
+
+## Load packages
+
+```{r load-libraries, warning=FALSE, message=FALSE}
+library(tidyverse)  # Load ggplot2, dplyr, and all the other tidyverse packages
+library(mosaic)
+library(ggthemes)
+library(lubridate)
+library(fivethirtyeight)
+library(here)
+library(skimr)
+library(janitor)
+library(vroom)
+library(tidyquant)
+library(rvest)    # scrape websites
+library(purrr)  
+library(lubridate) #to handle dates
+```
+
+## Load data and take a look
+
+```{r message=FALSE, warning=FALSE}
+movies <- read_csv(here::here("data", "movies.csv"))
+glimpse(movies)
+skim(movies)
+# source of data <https://www.kaggle.com/carolzhangdc/imdb-5000-movie-dataset>
+```
+
+Besides the obvious variables of `title`, `genre`, `director`, `year`, and `duration`, the rest of the variables are as follows:
+
+- `gross` : The gross earnings in the US box office, not adjusted for inflation
+- `budget`: The movie's budget 
+- `cast_facebook_likes`: the number of facebook likes cast memebrs received
+- `votes`: the number of people who voted for (or rated) the movie in IMDB 
+- `reviews`: the number of reviews for that movie
+- `rating`: IMDB average rating 
+
+## Observe dataframe
+
+From `skim`, we can see that there no missing values. Groovy. But less straightforward to deduce is the fact that there are duplicates. There is a difference between *Number of rows* and *n_unique* = 2961 - 2907 = 54 duplicates. They ought to be removed.
+
+## Remove duplicates
+
+```{r}
+# remove duplicates
+movies %>% 
+  distinct(title)
+```
+
+We can conveniently summarise how many movies fall under each category, to get a sense of what genres we are working with.
+
+## Number of movies by genre
+
+```{r}
+# Produce a table with the count of movies by genre, ranked in descending order
+movies_by_genre <- movies %>% 
+ group_by(genre) %>% 
+summarise(count=count(genre)) %>% 
+  arrange(desc(count))
+movies_by_genre
+```
+
+It looks like we are mostly dealing with comedies and actions. These are my two favorite genres to watch in cinema! Why are there so many of them? Is it because people like them so movie makers tend to want to make them? Is it profitable to make them?
+
+## Profitability of movies by genre
+
+```{r}
+gross_budget <- movies %>% 
+ group_by(genre) %>% 
+summarise(budget=mean(budget),
+          gross=mean(gross),
+          return_on_budget=gross/budget) %>%  # Calculate average profitability in $ gross per $ budget
+  arrange(desc(return_on_budget))
+gross_budget
+```
+
+Look, comedy is not as profitable as it may seem. Action movies are amongst the least profitable. Movie makers should probably do musicals like la la land to earn extra dimes for the crew.
+
+For long, I have been wondering who is the most grossing director. Now is a chance to look at this.
+
+## Revenue stats by directors
+
+```{r}
+director <- movies %>% 
+  group_by(director) %>% 
+  summarise(gross_revenue=sum(gross),
+            mean_revenue=mean(gross),
+            median_revenue = median(gross),
+            sd_revenue = sd(gross)) %>% 
+arrange(desc(gross_revenue)) %>% 
+  head(15,gross_revenue)
+director
+```
+
+It looks like Steven Spielberg, from his life-time creations, have made the most for his producer and distributors. But from `mean_revenue` and `median_revenue` it can appear to investors that investing in a George Lucas' film can be twice as grossing as a Spielberg's one!
+
+It is rumored that the best movies do not get enough box office. While this is anecdotally true, are we sure this is the general case? Does rating have a correlation with gross revenue?
+
+## Plot of gross vs rating
+
+```{r}
+rating_grossing <- 
+  ggplot(data = movies, mapping = (aes(x = rating, y = gross))) +
+  geom_point() +
+  scale_y_log10() +
+  geom_smooth() +
+  labs(y="Gross Revenue",x= "Movie Rating", title="Relationship between Gross Revenue & IMDB ratings")
+
+rating_grossing
+```
+
+It looks a positive correlation over there. Going deeper, we can differentiate the relationship by genre.
+
+## Plot of gross vs rating by genre
+
+```{r, gross_on_rating}
+gross_on_rating <- movies %>% 
+  ggplot(aes(x=rating,y=gross))+
+  facet_wrap(~genre)+
+  geom_point()+
+  geom_smooth()+
+  labs(x="Movie Rating", y= "Gross Revenue",title="Relationship between Gross Revenue & Movie Rating")
+gross_on_rating
+```
+
+Cool, some have too scarce data to predict the relationship. Let's look at other interesting correlations. How about online popularity of cast on facebook? Would it be correlated with a higher box office?
+
+# Plot of gross vs facebook likes
+
+```{r, gross_on_fblikes}
+gross_on_fblikes <- movies %>% 
+  ggplot(aes(x=cast_facebook_likes,y=gross))+
+  geom_point()+
+  geom_smooth()+
+  scale_x_log10()+
+  scale_y_log10()+
+  labs(y="Gross Revenue",x= "Cast Facebook Likes", title="Relationship between Gross Revenue & Cast Facebook Likes")
+gross_on_fblikes
+```
+
+Yes! What about the relationship between gross and budget? Is it necessary that the higher expenditure to make a movie, the more it will earn?
+
+```{r, gross_on_budget}
+gross_on_budget <- movies %>% 
+  ggplot(aes(x=budget,y=gross))+
+  geom_point()+
+  geom_smooth()+
+  scale_x_log10()+
+  scale_y_log10()+
+  labs(x="Budget", y="Gross Revenue", title="Relationship between Budget & Gross Revenue")
+gross_on_budget
+
+```
+  
+In general, more budget means more gross, although there are some expensive flops and cheap wins!
+
+## Acknowledgement of data source: [IMDB dataset](https://www.kaggle.com/carolzhangdc/imdb-5000-movie-dataset)
